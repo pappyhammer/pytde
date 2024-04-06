@@ -3,32 +3,49 @@ import yaml
 
 
 def fusion_same_col_files(file_names, export_file_name=None, drop_duplicate=True,
-                          file_format="csv",
-                          sep=";", import_encoding="ISO-8859-1", export_encoding="utf-8"):
+                          file_format="csv",ignore_index=False,
+                          sep=";", import_encoding="ISO-8859-1", export_encoding="utf-8",
+                          verbose=False):
     """
        Fusion a set of files that contains the same columns but not the same lines
 
-       :param file_names: (list of str) path and file_names fo the files
+       :param file_names: (list of str or df) path and file_names fo the files
        :param export_file_name: (str or None) if None return a Pandas DataFrame instance otherwise save the file as
        export_file_name
        :param file_format: str, for now only csv is supported
        :param sep:
+       :param ignore_index:
        :param drop_duplicate: if True and some data are dupplicated, then we delete it.
        :param import_encoding:
        :param export_encoding:
+       :param verbose:
        :return:
     """
     assert file_format == "csv"
 
+    if verbose:
+        print("fusion_same_col_files() verbose")
+
     dfs = []
     for file_name in file_names:
-        dfs.append(pd.read_csv(file_name, encoding=import_encoding, sep=sep))
+        if isinstance(file_name, str):
+            df_file = pd.read_csv(file_name, encoding=import_encoding, sep=sep)
+            if verbose:
+                print(f"Len df_file: {len(df_file)}")
+            dfs.append(df_file)
+        else:
+            if verbose:
+                print(f"Len df: {len(file_name)}")
+            dfs.append(file_name)
 
     df = pd.concat(dfs)
     if drop_duplicate:
         duplicate_rows_df = df[df.duplicated()]
         print(f"Number of duplicated rows: {duplicate_rows_df.shape[0]}")
         df = df.drop_duplicates()
+
+    if verbose:
+        print(f"Len final df: {len(df)}")
 
     if export_file_name is not None:
         df.to_csv(export_file_name, encoding=export_encoding, index=False)
@@ -39,7 +56,7 @@ def fusion_same_col_files(file_names, export_file_name=None, drop_duplicate=True
 def rename_columns(columns_mapping, file_name=None, df_to_use=None, columns_to_drop=None,
                    export_file_name=None,
                    file_format="csv",
-                   sep=";", import_encoding="ISO-8859-1", export_encoding="utf-8"):
+                   sep=";", import_encoding="ISO-8859-1", export_encoding="utf-8", verbose=True):
     """
 
     :param file_name: a csv file
@@ -50,6 +67,7 @@ def rename_columns(columns_mapping, file_name=None, df_to_use=None, columns_to_d
     dict containing original column name as key and value being the new column name
     :param import_encoding:
     :param export_encoding:
+    :param verbose:
     :return:
     """
 
@@ -73,8 +91,9 @@ def rename_columns(columns_mapping, file_name=None, df_to_use=None, columns_to_d
     for i, c_name in enumerate(columns_name):
         if c_name in columns_mapping:
             columns_name[i] = columns_mapping[c_name]
-            print(f"Col '{c_name}' changed to '{columns_mapping[c_name]}'")
-        else:
+            if verbose:
+                print(f"Col '{c_name}' changed to '{columns_mapping[c_name]}'")
+        elif verbose:
             print(f"- Col '{c_name}' not changed")
 
     df.columns = columns_name
@@ -117,14 +136,14 @@ def keep_not_na_values(df, columns_to_check):
 
     return df
 
-def merge_files_by_key(file_1, file_2, on, export_file_name=None,
+
+def merge_files_by_key(files, on, export_file_name=None,
                        file_format="csv",
                        sep=";", import_encoding="ISO-8859-1", export_encoding="utf-8"):
     """
 
-    :param file_1: either str (file_name) or Pandas dataframe
-    :param file_2: either str (file_name) or Pandas dataframe
-    :param on:
+    :param files: list of either str (file_name) or Pandas dataframe
+    :param on: columns to use to know which ones to merge together
     :param export_file_name:
     :param file_format:
     :param sep:
@@ -133,28 +152,28 @@ def merge_files_by_key(file_1, file_2, on, export_file_name=None,
     :return:
     """
     assert file_format == "csv"
+    dfs = []
+    for file in files:
+        if isinstance(file, str):
+            dfs.append(pd.read_csv(file, encoding=import_encoding, sep=sep))
+        else:
+            dfs.append(file)
 
-    if isinstance(file_1, str):
-        df_1 = pd.read_csv(file_1, encoding=import_encoding, sep=sep)
-    else:
-        df_1 = file_1
+    df = dfs[0]
+    for df_to_merge in dfs[1:]:
+        df = pd.merge(df, df_to_merge, how='inner', on=on, suffixes=(None, "_merged"))
 
-    if isinstance(file_2, str):
-        df_2 = pd.read_csv(file_2, encoding=import_encoding, sep=sep)
-    else:
-        df_2 = file_2
+        # df.drop_duplicates(subset=on, keep='first', inplace=True, ignore_index=True)
 
-    df = pd.merge(df_1, df_2, how='inner', on=on, suffixes=(None, "_merged"))
+        # now deleting merged columns present in double
+        columns_name = list(df)
+        columns_to_drop = []
+        for column_name in columns_name:
+            if "_merged" in column_name:
+                columns_to_drop.append(column_name)
 
-    # now deleting merged columns present in double
-    columns_name = list(df)
-    columns_to_drop = []
-    for column_name in columns_name:
-        if "_merged" in column_name:
-            columns_to_drop.append(column_name)
-
-    if columns_to_drop:
-        df.drop(columns=columns_to_drop, inplace=True)
+        if columns_to_drop:
+            df.drop(columns=columns_to_drop, inplace=True)
 
     if export_file_name is not None:
         df.to_csv(export_file_name, encoding=export_encoding, index=False)
