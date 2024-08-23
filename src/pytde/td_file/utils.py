@@ -30,8 +30,8 @@ def fusion_same_col_files(file_names, export_file_name=None, drop_duplicate=True
     dfs = []
     for file_name in file_names:
         if isinstance(file_name, str):
-            # df_file = from_csv_to_df(csv_file=file_name, encoding=import_encoding)
-            df_file = pd.read_csv(file_name, encoding=import_encoding, sep=sep)
+            df_file = from_csv_to_df(csv_file=file_name, encoding=import_encoding)
+            # df_file = pd.read_csv(file_name, encoding=import_encoding, sep=sep)
             if verbose:
                 print(f"Len df_file: {len(df_file)}")
             dfs.append(df_file)
