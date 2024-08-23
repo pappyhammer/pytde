@@ -1,5 +1,6 @@
 import pandas as pd
 import yaml
+from urgped.src.utils.pandas_utils import from_csv_to_df
 
 
 def fusion_same_col_files(file_names, export_file_name=None, drop_duplicate=True,
@@ -29,6 +30,7 @@ def fusion_same_col_files(file_names, export_file_name=None, drop_duplicate=True
     dfs = []
     for file_name in file_names:
         if isinstance(file_name, str):
+            # df_file = from_csv_to_df(csv_file=file_name, encoding=import_encoding)
             df_file = pd.read_csv(file_name, encoding=import_encoding, sep=sep)
             if verbose:
                 print(f"Len df_file: {len(df_file)}")
@@ -77,7 +79,11 @@ def rename_columns(columns_mapping, file_name=None, df_to_use=None, columns_to_d
     if df_to_use is not None:
         df = df_to_use
     else:
+        # df = from_csv_to_df(csv_file=file_name)
         df = pd.read_csv(file_name, encoding=import_encoding, sep=';')
+        columns_name = list(df)
+        if len(columns_name) == 1:
+            df = pd.read_csv(file_name, encoding=import_encoding)
 
     columns_name = list(df)
     columns_name = [c.strip() for c in columns_name]
